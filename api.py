@@ -85,15 +85,79 @@ app.add_middleware(
 ranked_stories: list[Story] = []
 stories_by_id: dict[int, Story] = {}
 
-
-async def fetch_stories() -> tuple[list[Story], dict[int, Story]]:
-    db = DBHandler({
+def get_db_connection() -> DBHandler:
+    return DBHandler({
         "host": os.getenv("PG_HOST"),
         "port": os.getenv("PG_PORT"),
         "database": os.getenv("PG_DATABASE"),
         "user": os.getenv("PG_USER"),
         "password": os.getenv("PG_PASSWORD"),
     })
+
+async def fetch_story(story_id: int) -> Story:
+    db = get_db_connection()
+    db_out = db.run_sql(
+        f"""
+        select s.*
+        from stories s
+        where s.id = {story_id}
+        """
+    )
+    if not db_out:
+        return None
+    story = StoryRow(*db_out[0])
+    providers: dict[int, ProviderRow] = {
+        (pr := ProviderRow(*p)).id: pr
+        for p in db.run_sql(
+            """
+        select p.*
+        from providers p
+        """
+        )
+    }
+    articles = [ArticleRow(*row) for row in db.run_sql(
+        f"""
+        select a.*
+        from articles a
+        left join story_articles sa
+        on a.id = sa.article_id
+        where sa.story_id = {story_id}
+        """
+    )]
+    images = [ImageRow(*row) for row in db.run_sql(
+        f"""
+        select i.*
+        from images i
+        where i.story_id = {story_id}
+        """
+    )]
+    return Story(
+        id=story.id,
+        title=story.title,
+        ts=story.ts,
+        summary=sent_tokenize(story.summary),
+        coverage=sent_tokenize(story.coverage),
+        articles=[
+            Article(
+                title=article.title,
+                subtitle=article.subtitle,
+                date=article.date,
+                url=article.url,
+                provider=Provider(
+                    name=providers[article.provider_id].name,
+                    url=providers[article.provider_id].url,
+                    favicon_url=providers[article.provider_id].favicon_url,
+                    country=providers[article.provider_id].country,
+                ),
+            )
+            for article in articles
+        ],
+        images=[Image(url=image.url) for image in images],
+    )
+    
+
+async def fetch_stories() -> tuple[list[Story], dict[int, Story]]:
+    db = get_db_connection()
     digest_id = db.run_sql("select max(digest_id) from stories")[0][0]
     stories: dict[int, StoryRow] = {
         (sr := StoryRow(*s)).id: sr
@@ -200,7 +264,11 @@ async def get_stories() -> list[Story]:
 
 @app.get("/story/{story_id}")
 async def get_story(story_id: int) -> Story:
-    return stories_by_id.get(story_id)
+    if story_id in stories_by_id:
+        return stories_by_id[story_id]
+    story = await fetch_story(story_id)
+    stories_by_id[story_id] = story
+    return story
 
 
 @app.post("/refresh")
