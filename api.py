@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import datetime as dt
 import os
 import dotenv
@@ -63,9 +64,15 @@ class Story:
     @property
     def n_countries(self) -> int:
         return len(set(a.provider.country for a in self.articles))
+    
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(fetch_stories_loop())
+    yield
+    task.cancel()  # optional: handle shutdown cleanly
+    await task
 
-
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -184,11 +191,6 @@ async def fetch_stories_loop():
         ranked_stories, stories_by_id = await fetch_stories()
         print("Fetched stories")
         await asyncio.sleep(600)
-
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(fetch_stories_loop())
 
 
 @app.get("/stories")
