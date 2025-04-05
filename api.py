@@ -158,7 +158,8 @@ async def fetch_story(story_id: int) -> Story:
 
 async def fetch_stories() -> tuple[list[Story], dict[int, Story]]:
     db = get_db_connection()
-    digest_id = db.run_sql("select max(digest_id) from stories")[0][0]
+    digest_id = db.run_sql("select max(id) from digests")[0][0]
+    # digest_ts = db.run_sql(f"select ts from digest where id = {digest_id}")[0][0]
     stories: dict[int, StoryRow] = {
         (sr := StoryRow(*s)).id: sr
         for s in db.run_sql(
