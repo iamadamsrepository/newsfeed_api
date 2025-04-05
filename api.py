@@ -8,8 +8,8 @@ from mangum import Mangum
 import nltk
 import uvicorn
 
-from api_objects import Story
-from fetch import fetch_stories, fetch_story
+from api_objects import Story, Timeline
+from fetch import fetch_stories, fetch_story, fetch_timeline
 
 nltk.download("punkt_tab")
 dotenv.load_dotenv()
@@ -33,6 +33,7 @@ app.add_middleware(
 
 ranked_stories: list[Story] = []
 stories_by_id: dict[int, Story] = {}
+timelines_by_id: dict[int, Timeline] = {}
 
 async def fetch_stories_loop():
     global ranked_stories, stories_by_id
@@ -54,6 +55,15 @@ async def get_story(story_id: int) -> Story:
     story = await fetch_story(story_id)
     stories_by_id[story_id] = story
     return story
+
+
+@app.get("/timeline/{timeline_id}")
+async def get_story(timeline_id: int) -> Timeline:
+    if timeline_id in timelines_by_id:
+        return timelines_by_id[timeline_id]
+    timeline = await fetch_timeline(timeline_id)
+    timelines_by_id[timeline_id] = timeline
+    return timeline
 
 
 @app.post("/refresh")

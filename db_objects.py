@@ -46,3 +46,28 @@ class StoryRow:
     coverage: str
     digest_id: int
     digest_description: str
+
+
+@dataclass
+class TimelineRow:
+    id: int
+    digest_id: int
+    ts: dt.datetime
+    subject: str
+    headline: str
+    summary: str
+
+
+@dataclass
+class TimelineEventRow:
+    timeline_id: int
+    story_id: int
+    description: str
+    date: dt.date
+    date_type: str
+
+
+@dataclass
+class TimelineStoryRow:
+    timeline_id: int
+    story_id: int

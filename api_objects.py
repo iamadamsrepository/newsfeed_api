@@ -3,7 +3,7 @@ import datetime as dt
 
 from nltk.tokenize import sent_tokenize
 
-from db_objects import ArticleRow, ImageRow, ProviderRow, StoryRow
+from db_objects import ArticleRow, ImageRow, ProviderRow, StoryRow, TimelineEventRow, TimelineRow
 
 @dataclass
 class Provider:
@@ -73,4 +73,69 @@ class Story:
                 for article in articles
             ],
             images=[Image(url=image.url) for image in images],
+        )
+
+
+@dataclass
+class StorySummary:
+    id: int
+    title: str
+    ts: dt.datetime
+    summary: str
+    coverage: str
+
+
+@dataclass
+class TimelineEvent:
+    story_id: int
+    description: str
+    date: dt.date
+    date_type: str
+
+
+@dataclass
+class Timeline:
+    id: int
+    ts: dt.datetime
+    subject: str
+    headline: str
+    summary: str
+    events: list[TimelineEvent]
+    stories: list[StorySummary]
+
+    @property
+    def n_events(self) -> int:
+        return len(self.events)
+    
+    @property
+    def n_stories(self) -> int:
+        return len(self.story_ids)
+    
+    @classmethod
+    def from_db_rows(cls, timeline: TimelineRow, events: list[TimelineEventRow], stories: list[StoryRow]) -> "Timeline":
+        return cls(
+            id=timeline.id,
+            ts=timeline.ts,
+            subject=timeline.subject,
+            headline=timeline.headline,
+            summary=timeline.summary,
+            events=[
+                TimelineEvent(
+                    story_id=event.story_id,
+                    description=event.description,
+                    date=event.date,
+                    date_type=event.date_type,
+                )
+                for event in events
+            ],
+            stories=[
+                StorySummary(
+                    id=story.id,
+                    title=story.title,
+                    ts=story.ts,
+                    summary=story.summary,
+                    coverage=story.coverage,
+                )
+                for story in stories
+            ],
         )

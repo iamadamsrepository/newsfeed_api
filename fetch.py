@@ -1,9 +1,9 @@
 from collections import defaultdict
 import os
 
-from api_objects import Story
+from api_objects import Story, Timeline
 from db_connection import DBHandler
-from db_objects import ArticleRow, ImageRow, ProviderRow, StoryRow
+from db_objects import ArticleRow, ImageRow, ProviderRow, StoryRow, TimelineEventRow, TimelineRow
 
 def article_ranking_criterion(article: ArticleRow) -> float:
     return article.ts
@@ -61,6 +61,38 @@ async def fetch_story(story_id: int) -> Story:
         """
     )]
     return Story.from_db_rows(story, articles, images, providers)
+
+
+async def fetch_timeline(timeline_id: int) -> Timeline:
+    db = get_db_connection()
+    db_out = db.run_sql(
+        f"""
+        select t.*
+        from timelines t
+        where t.id = {timeline_id}
+        """
+    )
+    if not db_out:
+        return None
+    timeline = TimelineRow(*db_out[0])
+    stories = [StoryRow(*row) for row in db.run_sql(
+        f"""
+        select s.*
+        from stories s
+        left join timeline_stories ts
+        on s.id = ts.story_id
+        where ts.timeline_id = {timeline_id}
+        """
+    )]
+    events = [TimelineEventRow(*row) for row in db.run_sql(
+        f"""
+        select te.*
+        from timeline_events te
+        where te.timeline_id = {timeline_id}
+        """
+    )]
+    return Timeline.from_db_rows(timeline, events, stories)
+
 
 async def fetch_stories() -> tuple[list[Story], dict[int, Story]]:
     db = get_db_connection()
