@@ -100,7 +100,7 @@ class Timeline:
     ts: dt.datetime
     subject: str
     headline: str
-    summary: str
+    summary: list[str]
     events: list[TimelineEvent]
     stories: list[StorySummary]
 
@@ -119,7 +119,7 @@ class Timeline:
             ts=timeline.ts,
             subject=timeline.subject,
             headline=timeline.headline,
-            summary=timeline.summary,
+            summary=sent_tokenize(timeline.summary),
             events=[
                 TimelineEvent(
                     story_id=event.story_id,
