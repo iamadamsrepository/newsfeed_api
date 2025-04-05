@@ -26,6 +26,12 @@ class ArticleRow:
 
 
 @dataclass
+class DigestRow:
+    id: int
+    ts: dt.datetime
+
+
+@dataclass
 class ImageRow:
     id: int
     story_id: int

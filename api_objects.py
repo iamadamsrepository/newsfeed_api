@@ -3,7 +3,7 @@ import datetime as dt
 
 from nltk.tokenize import sent_tokenize
 
-from db_objects import ArticleRow, ImageRow, ProviderRow, StoryRow, TimelineEventRow, TimelineRow
+from db_objects import ArticleRow, DigestRow, ImageRow, ProviderRow, StoryRow, TimelineEventRow, TimelineRow
 
 @dataclass
 class Provider:
@@ -139,3 +139,45 @@ class Timeline:
                 for story in stories
             ],
         )
+
+@dataclass
+class Digest:
+    id: int
+    ts: dt.datetime
+    stories: list[Story]
+    timelines: list[Timeline]
+
+    @classmethod
+    def from_db_rows(
+        cls, 
+        digest: DigestRow, 
+        timelines: list[TimelineRow], 
+        timeline_events: dict[int, list[TimelineEventRow]], 
+        timeline_stories: dict[int, list[StoryRow]],
+        stories: list[StoryRow], 
+        story_articles: dict[int, list[ArticleRow]], 
+        story_images: dict[int, list[ImageRow]],
+        providers: dict[int, ProviderRow]
+    ) -> "Digest":
+        return cls(
+            id=digest.id,
+            ts=digest.ts,
+            stories=[
+                Story.from_db_rows(
+                    story,
+                    story_articles[story.id],
+                    story_images[story.id],
+                    providers
+                )
+                for story in stories
+            ],
+            timelines=[
+                Timeline.from_db_rows(
+                    timeline,
+                    timeline_events[timeline.id],
+                    timeline_stories[timeline.id]
+                )
+                for timeline in timelines
+            ],
+        )
+        
