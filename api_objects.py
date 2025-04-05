@@ -5,6 +5,7 @@ from nltk.tokenize import sent_tokenize
 
 from db_objects import ArticleRow, DigestRow, ImageRow, ProviderRow, StoryRow, TimelineEventRow, TimelineRow
 
+
 @dataclass
 class Provider:
     name: str
@@ -109,7 +110,7 @@ class Timeline:
     
     @property
     def n_stories(self) -> int:
-        return len(self.story_ids)
+        return len(self.stories)
     
     @classmethod
     def from_db_rows(cls, timeline: TimelineRow, events: list[TimelineEventRow], stories: list[StoryRow]) -> "Timeline":
@@ -159,25 +160,55 @@ class Digest:
         story_images: dict[int, list[ImageRow]],
         providers: dict[int, ProviderRow]
     ) -> "Digest":
+        story_articles = {
+            story_id: sort_articles(articles)
+            for story_id, articles in story_articles.items()
+        }
+        stories = [
+            Story.from_db_rows(
+                story,
+                story_articles[story.id],
+                story_images[story.id],
+                providers
+            )
+            for story in stories
+        ]
+        stories = sort_stories(stories)
+        timelines = [
+            Timeline.from_db_rows(
+                timeline,
+                timeline_events[timeline.id],
+                timeline_stories[timeline.id]
+            )
+            for timeline in timelines
+        ]
+        timelines = sort_timelines(timelines)
         return cls(
             id=digest.id,
             ts=digest.ts,
-            stories=[
-                Story.from_db_rows(
-                    story,
-                    story_articles[story.id],
-                    story_images[story.id],
-                    providers
-                )
-                for story in stories
-            ],
-            timelines=[
-                Timeline.from_db_rows(
-                    timeline,
-                    timeline_events[timeline.id],
-                    timeline_stories[timeline.id]
-                )
-                for timeline in timelines
-            ],
+            stories=stories,
+            timelines=timelines,
         )
         
+def article_ranking_criterion(article: ArticleRow) -> float:
+    return article.ts
+
+
+def sort_articles(articles: list[ArticleRow]) -> list[ArticleRow]:
+    return sorted(articles, key=article_ranking_criterion, reverse=True)
+
+
+def story_ranking_criterion(story: Story) -> float:
+    return story.n_providers * story.n_articles
+
+
+def sort_stories(stories: list[Story]) -> list[Story]:
+    return sorted(stories, key=story_ranking_criterion, reverse=True)
+
+
+def timeline_ranking_criterion(timeline: Timeline) -> float:
+    return timeline.n_stories * timeline.n_events
+
+
+def sort_timelines(timelines: list[Timeline]) -> list[Timeline]:
+    return sorted(timelines, key=timeline_ranking_criterion, reverse=True)

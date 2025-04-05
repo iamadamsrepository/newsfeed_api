@@ -9,14 +9,14 @@ import nltk
 import uvicorn
 
 from api_objects import Digest, Story, Timeline
-from fetch import fetch_digest, fetch_stories, fetch_story, fetch_timeline
+from fetch import fetch_digest, fetch_latest_digest, fetch_story, fetch_timeline
 
 nltk.download("punkt_tab")
 dotenv.load_dotenv()
     
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(fetch_stories_loop())
+    task = asyncio.create_task(refresh_loop())
     yield
     task.cancel()  # optional: handle shutdown cleanly
     await task
@@ -31,56 +31,65 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-ranked_stories: list[Story] = []
-stories_by_id: dict[int, Story] = {}
-timelines_by_id: dict[int, Timeline] = {}
-digests_by_id: dict[int, Digest] = {}
+latest_digest: Digest | None = None
+stories: dict[int, Story] = {}
+timelines: dict[int, Timeline] = {}
+digests: dict[int, Digest] = {}
 
-async def fetch_stories_loop():
-    global ranked_stories, stories_by_id
+async def refresh_loop(new_digest_check_interval: int = 15, refresh_interval: int = 240):
+    global latest_digest, stories, timelines, digests
+    sleep_1_min = lambda: asyncio.sleep(60)
+    i = 0 
     while True:
-        ranked_stories, stories_by_id = await fetch_stories()
-        print("Fetched stories")
-        await asyncio.sleep(1800)
+        if i % new_digest_check_interval == 0:
+            print("Fetching latest digest")
+            latest_digest = await fetch_latest_digest()
+            print("Fetched latest digest")
+        if i % refresh_interval == 0:
+            stories, timelines, digests = {}, {}, {}
+            print("Cleared in-memory stories, timelines, and digests")
+        i += 1
+        await sleep_1_min()
 
 
-@app.get("/stories")
-async def get_stories() -> list[Story]:
-    return ranked_stories
+@app.get("/latest_digest")
+async def get_latest_digest() -> Digest:
+    return latest_digest
 
 
 @app.get("/digest/{digest_id}")
 async def get_digest(digest_id: int) -> Digest:
-    if digest_id in stories_by_id:
-        return stories_by_id[digest_id]
+    if digest_id in digests:
+        return digests[digest_id]
     digest = await fetch_digest(digest_id)
-    digests_by_id[digest_id] = digest
+    digests[digest_id] = digest
     return digest
 
 
 @app.get("/story/{story_id}")
 async def get_story(story_id: int) -> Story:
-    if story_id in stories_by_id:
-        return stories_by_id[story_id]
+    if story_id in stories:
+        return stories[story_id]
     story = await fetch_story(story_id)
-    stories_by_id[story_id] = story
+    stories[story_id] = story
     return story
 
 
 @app.get("/timeline/{timeline_id}")
 async def get_story(timeline_id: int) -> Timeline:
-    if timeline_id in timelines_by_id:
-        return timelines_by_id[timeline_id]
+    if timeline_id in timelines:
+        return timelines[timeline_id]
     timeline = await fetch_timeline(timeline_id)
-    timelines_by_id[timeline_id] = timeline
+    timelines[timeline_id] = timeline
     return timeline
 
 
 @app.post("/refresh")
-async def run_fetch_stories():
-    global ranked_stories, stories_by_id
-    ranked_stories, stories_by_id = await fetch_stories()
-    return {"message": "stories refreshed successfully"}
+async def run_refresh():
+    global latest_digest, stories, timelines, digests
+    latest_digest = await fetch_latest_digest()
+    stories, timelines, digests = {}, {}, {}
+    return "Refreshed successfully"
 
 
 handler = Mangum(app)
