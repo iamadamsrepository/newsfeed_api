@@ -1,8 +1,7 @@
 from collections import defaultdict
 import os
-from nltk.tokenize import sent_tokenize
 
-from api_objects import Article, Image, Provider, Story
+from api_objects import Story
 from db_connection import DBHandler
 from db_objects import ArticleRow, ImageRow, ProviderRow, StoryRow
 
@@ -61,30 +60,7 @@ async def fetch_story(story_id: int) -> Story:
         where i.story_id = {story_id}
         """
     )]
-    return Story(
-        id=story.id,
-        title=story.title,
-        ts=story.ts,
-        summary=sent_tokenize(story.summary),
-        coverage=sent_tokenize(story.coverage),
-        articles=[
-            Article(
-                title=article.title,
-                subtitle=article.subtitle,
-                date=article.date,
-                url=article.url,
-                provider=Provider(
-                    name=providers[article.provider_id].name,
-                    url=providers[article.provider_id].url,
-                    favicon_url=providers[article.provider_id].favicon_url,
-                    country=providers[article.provider_id].country,
-                ),
-            )
-            for article in articles
-        ],
-        images=[Image(url=image.url) for image in images],
-    )
-    
+    return Story.from_db_rows(story, articles, images, providers)
 
 async def fetch_stories() -> tuple[list[Story], dict[int, Story]]:
     db = get_db_connection()
@@ -143,28 +119,11 @@ async def fetch_stories() -> tuple[list[Story], dict[int, Story]]:
     stories_by_id = {}
     for story_out in stories.values():
         story_out: StoryRow
-        story = Story(
-            id=story_out.id,
-            title=story_out.title,
-            ts=story_out.ts,
-            summary=sent_tokenize(story_out.summary),
-            coverage=sent_tokenize(story_out.coverage),
-            articles=[
-                Article(
-                    title=article.title,
-                    subtitle=article.subtitle,
-                    date=article.date,
-                    url=article.url,
-                    provider=Provider(
-                        name=providers[article.provider_id].name,
-                        url=providers[article.provider_id].url,
-                        favicon_url=providers[article.provider_id].favicon_url,
-                        country=providers[article.provider_id].country,
-                    ),
-                )
-                for article in story_articles[story_out.id]
-            ],
-            images=[Image(url=image.url) for image in story_images[story_out.id]],
+        story =  Story.from_db_rows(
+            story_out,
+            story_articles[story_out.id],
+            story_images[story_out.id],
+            providers,
         )
         stories_list.append(story)
         stories_by_id[story_out.id] = story

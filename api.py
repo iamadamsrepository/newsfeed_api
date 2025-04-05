@@ -39,7 +39,7 @@ async def fetch_stories_loop():
     while True:
         ranked_stories, stories_by_id = await fetch_stories()
         print("Fetched stories")
-        await asyncio.sleep(600)
+        await asyncio.sleep(1800)
 
 
 @app.get("/stories")
