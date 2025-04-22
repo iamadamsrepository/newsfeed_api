@@ -190,6 +190,7 @@ async def fetch_latest_digest() -> Digest:
         f"""
         select d.*
         from digests d
+        where d.status = 'READY'
         order by d.ts desc
         limit 1
         """
