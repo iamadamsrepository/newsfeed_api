@@ -44,7 +44,7 @@ async def refresh_loop(new_digest_check_interval: int = 15, refresh_interval: in
         if i % new_digest_check_interval == 0:
             print("Fetching latest digest")
             latest_digest = await fetch_latest_digest()
-            print("Fetched latest digest")
+            print(f"Fetched latest digest {latest_digest.id=}")
         if i % refresh_interval == 0:
             stories, timelines, digests = {}, {}, {}
             print("Cleared in-memory stories, timelines, and digests")

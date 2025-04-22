@@ -29,6 +29,7 @@ class ArticleRow:
 class DigestRow:
     id: int
     ts: dt.datetime
+    status: str
 
 
 @dataclass
